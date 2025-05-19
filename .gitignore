@@ -1,0 +1,15 @@
+# Gradle
+.gradle/
+build/
+run/
+
+# IntelliJ
+.idea/
+*.iml
+
+# OS / Editor files
+*.log
+.DS_Store
+
+# Other
+out/
