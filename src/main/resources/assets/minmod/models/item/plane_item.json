@@ -1,3 +1,29 @@
 {
-  "parent": "minmod:item/plane_item_3d"
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "minmod:item/plane"
+  },
+  "display": {
+    "thirdperson_righthand": {
+      "parent": "minmod:item/plane_item_3d"
+    },
+    "firstperson_righthand": {
+      "parent": "minmod:item/plane_item_3d"
+    },
+    "thirdperson_lefthand": {
+      "parent": "minmod:item/plane_item_3d"
+    },
+    "firstperson_lefthand": {
+      "parent": "minmod:item/plane_item_3d"
+    },
+    "ground": {
+      "parent": "minmod:item/plane_item_3d"
+    },
+    "fixed": {
+      "parent": "minmod:item/plane_item_3d"
+    },
+    "head": {
+      "parent": "minmod:item/plane_item_3d"
+    }
+  }
 }

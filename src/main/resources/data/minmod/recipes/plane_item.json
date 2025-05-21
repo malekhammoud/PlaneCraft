@@ -1,16 +1,28 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    " I ",
-    "WWW",
-    " W "
+    "NIN",
+    "WRW",
+    "GCG"
   ],
   "key": {
+    "N": {
+      "item": "minecraft:netherite_ingot"
+    },
     "I": {
-      "item": "minecraft:iron_ingot"
+      "item": "minecraft:iron_block"
+    },
+    "R": {
+      "item": "minecraft:redstone_block"
     },
     "W": {
-      "item": "minecraft:oak_planks"
+      "item": "minmod:plane_wing"
+    },
+    "G": {
+      "item": "minecraft:gold_block"
+    },
+    "C": {
+      "item": "minecraft:copper_block"
     }
   },
   "result": {

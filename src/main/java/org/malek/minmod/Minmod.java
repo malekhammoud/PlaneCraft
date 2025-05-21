@@ -32,6 +32,7 @@ public class Minmod implements ModInitializer {
 
     // Item Registration
     public static final PlaneItem PLANE_ITEM = new PlaneItem(new Item.Settings().maxCount(1));
+    public static final Item PLANE_WING_ITEM = new Item(new Item.Settings());
 
     @Override
     public void onInitialize() {
@@ -49,12 +50,18 @@ public class Minmod implements ModInitializer {
     private void registerItems() {
         try {
             Registry.register(Registries.ITEM, new Identifier(MOD_ID, "plane_item"), PLANE_ITEM);
-            
+            Registry.register(Registries.ITEM, new Identifier(MOD_ID, "plane_wing"), PLANE_WING_ITEM);
+
             // Add the plane item to the tools item group
             ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(content -> {
                 content.add(PLANE_ITEM);
             });
             
+            // Add the plane wing item to the ingredients item group
+            ItemGroupEvents.modifyEntriesEvent(ItemGroups.INGREDIENTS).register(content -> {
+                content.add(PLANE_WING_ITEM);
+            });
+
             LOGGER.info("Items registered successfully!");
         } catch (Exception e) {
             LOGGER.error("Failed to register items", e);
