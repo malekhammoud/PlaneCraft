@@ -57,17 +57,20 @@ public class PlaneItem extends Item {
     @Override
     public ActionResult useOnBlock(ItemUsageContext context) {
         World world = context.getWorld();
+        PlayerEntity player = context.getPlayer();
+
         if (!world.isClient) {
-            Vec3d pos = context.getHitPos(); // New way, public access
+            Vec3d pos = context.getHitPos();
             PlaneEntity plane = new PlaneEntity(Minmod.PLANE_ENTITY_TYPE, world);
-            plane.refreshPositionAndAngles(pos.x, pos.y + 0.5, pos.z,
-                context.getPlayer() != null ? context.getPlayer().getYaw() : 0, 0);
+            plane.refreshPositionAndAngles(pos.x, pos.y, pos.z,
+                player != null ? player.getYaw() : 0, 0);
             world.spawnEntity(plane);
-            if (context.getPlayer() != null) {
+
+            if (player != null && !player.getAbilities().creativeMode) {
                 context.getStack().decrement(1);
-                context.getPlayer().startRiding(plane);
             }
+            return ActionResult.SUCCESS; // Server successfully handled it
         }
-        return ActionResult.success(world.isClient);
+        return ActionResult.CONSUME; // Client consumes the action, plays animation
     }
 }
