@@ -42,7 +42,18 @@ public class PlaneSpeedHudOverlay implements HudRenderCallback {
             drawContext.drawTextWithShadow(textRenderer, Text.literal(takeoffSpeedText), 10, 20, HUD_TEXT_COLOR);
             drawContext.drawTextWithShadow(textRenderer, Text.literal(stallSpeedText), 10, 30, HUD_TEXT_COLOR);
 
-            // GPS Info
+            // Display Coal Level
+            /*
+            int coalLevel = plane.getCoalLevel();
+            int maxCoalLevel = PlaneEntity.getMaxCoalLevel();
+
+            String coalText = String.format("Coal: %d / %d", coalLevel, maxCoalLevel);
+            // Change color if fuel is low (e.g., less than 10%)
+            int coalColor = (coalLevel <= maxCoalLevel * 0.1) ? 0xFF5555 : HUD_TEXT_COLOR; // Red if low, else white
+            drawContext.drawTextWithShadow(textRenderer, Text.literal(coalText), 10, 40, coalColor);
+             */
+
+            // GPS Info - Adjusted Y position to accommodate coal level text
             drawGpsInfo(drawContext, textRenderer, plane);
 
             // Altitude Indicator
@@ -55,7 +66,8 @@ public class PlaneSpeedHudOverlay implements HudRenderCallback {
 
     private void drawGpsInfo(DrawContext drawContext, TextRenderer textRenderer, PlaneEntity plane) {
         final int x = 10;
-        final int baseY = 40;
+        // Adjusted baseY to make space for the Coal Level text
+        final int baseY = 50;
         String posXText = String.format("X: %.1f", plane.getX());
         String posYText = String.format("Y: %.1f (Alt)", plane.getY());
         String posZText = String.format("Z: %.1f", plane.getZ());

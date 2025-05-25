@@ -2,12 +2,12 @@
   "type": "minecraft:crafting_shaped",
   "pattern": [
     "PPP",
-    "SIL",
-    "SSS"
+    "PIP",
+    "SLS"
   ],
   "key": {
     "P": {
-      "item": "minecraft:phantom_membrane"
+      "tag": "minecraft:planks"
     },
     "S": {
       "item": "minecraft:stick"

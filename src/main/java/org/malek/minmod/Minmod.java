@@ -16,11 +16,18 @@ import org.apache.logging.log4j.Logger;
 import org.malek.minmod.entity.PlaneEntity;
 import org.malek.minmod.item.PlaneItem;
 
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class Minmod implements ModInitializer {
 
     public static final Logger LOGGER = LogManager.getLogger("minmod");
     public static final String MOD_ID = "minmod";
     
+    // Set to track players who just exited a plane and whose next fall damage should be cancelled.
+    public static final Set<UUID> CANCEL_NEXT_FALL_DAMAGE = ConcurrentHashMap.newKeySet();
+
     // Register the plane entity type
     public static final EntityType<PlaneEntity> PLANE_ENTITY_TYPE = Registry.register(
         Registries.ENTITY_TYPE,

@@ -16,14 +16,17 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.item.ItemStack;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.block.BlockState;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
 import org.malek.minmod.Minmod;
-import org.apache.logging.log4j.LogManager; // Added import
-import org.apache.logging.log4j.Logger;    // Added import
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 
 public class PlaneEntity extends Entity {
-    public static final Logger LOGGER = LogManager.getLogger("MinModPlaneEntity"); // Added logger
+    public static final Logger LOGGER = LogManager.getLogger("MinModPlaneEntity");
 
     // Movement Parameters
     private float currentSpeed = 0.0f;
@@ -44,11 +47,40 @@ public class PlaneEntity extends Entity {
     private static final float STALL_DESCENT_RATE = 0.03f; // Additional downward pull when stalled
     private static final float INITIAL_LIFT_BOOST = 0.15f; // Small boost to get off ground
 
+    // --- Landing Damage Fields ---
+    private boolean prevOnGroundState; // To detect landing transition
+    private static final float LANDING_IMPACT_VELOCITY_NO_DAMAGE = 0.35f;  // Below this absolute Y-velocity, no damage, very soft.
+    private static final float LANDING_IMPACT_VELOCITY_LOW_DAMAGE_THRESHOLD = 0.55f; // Above NO_DAMAGE and below this, still no damage (soft landing zone).
+    private static final float LANDING_IMPACT_VELOCITY_HIGH_DAMAGE_THRESHOLD = 1.0f; // Above this, higher damage factor applies.
+    private static final float LANDING_DAMAGE_FACTOR_MODERATE = 4.0f; // Damage multiplier for impacts between LOW and HIGH thresholds.
+    private static final float LANDING_DAMAGE_FACTOR_HARD = 8.0f;   // Damage multiplier for impacts above HIGH threshold.
+    private static final float MAX_LANDING_DAMAGE = 10.0f; // Max damage from a single landing.
+
     public PlaneEntity(EntityType<? extends PlaneEntity> type, World world) {
         super(type, world);
         this.noClip = false; // Allow collisions
         this.setNoGravity(true); // We handle gravity manually
         this.intersectionChecked = true; // Use getBoundingBox() for raycasting (like boats)
+        this.prevOnGroundState = this.isOnGround(); // Initialize based on initial state after super()
+    }
+
+    @Override
+    protected void fall(double heightDifference, boolean onGround, BlockState landedState, BlockPos landedPosition) {
+        // This method is called when the plane itself lands.
+        // We need to ensure passengers' fallDistance is reset to prevent vanilla fall damage.
+        if (onGround) {
+            for (Entity passenger : this.getPassengersDeep()) {
+                if (passenger instanceof LivingEntity) {
+                    // Explicitly reset passenger fallDistance here.
+                    // LivingEntity.onLanding() (called by super.fall() via Entity.fall())
+                    // does not reliably reset fallDistance for all entities/versions.
+                    passenger.fallDistance = 0.0F;
+                }
+            }
+        }
+        // Call super.fall() to handle the plane's own fall logic (e.g., its own fallDistance reset)
+        // and interactions with the block it landed on.
+        super.fall(heightDifference, onGround, landedState, landedPosition);
     }
 
     @Override
@@ -70,6 +102,7 @@ public class PlaneEntity extends Entity {
 
         Entity controllingPassenger = this.getControllingPassenger();
         Vec3d positionAtTickStart = this.getPos(); // Store position at the very start of tick logic
+        double yVelocityForLandingCheck; // Will be captured before the final move call for this tick
 
         if (controllingPassenger instanceof LivingEntity rider) {
             float speedAtTickStart = currentSpeed; // Speed from end of last tick / start of this tick's logic
@@ -186,13 +219,66 @@ public class PlaneEntity extends Entity {
 
         this.velocityModified = true; // Important to tell the game we've changed velocity
 
+        // Capture Y-velocity just before the final move call for this tick
+        yVelocityForLandingCheck = this.getVelocity().y;
+
         // Apply calculated velocity, handle collisions, and update onGround status
         this.move(MovementType.SELF, this.getVelocity());
 
+        // --- Landing Damage and Fall Distance Logic ---
+        boolean currentOnGroundStatus = this.isOnGround();
+        boolean justLanded = currentOnGroundStatus && !this.prevOnGroundState;
+
+        if (controllingPassenger instanceof LivingEntity rider) {
+            // Continuously manage fallDistance for the rider
+            if (currentOnGroundStatus) { // Covers justLanded and already on ground
+                rider.fallDistance = 0.0F;
+            } else { // Plane is in the air
+                rider.fallDistance = 0.0F; // Continuously reset while flying to prevent accumulation
+            }
+
+            if (justLanded) {
+                double impactSpeed = Math.abs(yVelocityForLandingCheck); // This was the downward speed before impact
+                LOGGER.info("Plane with {} landed. Impact Y-speed: {:.3f}", rider.getName().getString(), impactSpeed);
+
+                if (impactSpeed > LANDING_IMPACT_VELOCITY_NO_DAMAGE) { // Only consider damage if impact is somewhat significant
+                    float damageAmount = 0.0f;
+                    if (impactSpeed > LANDING_IMPACT_VELOCITY_LOW_DAMAGE_THRESHOLD) { // Damage starts above this threshold
+                        if (impactSpeed > LANDING_IMPACT_VELOCITY_HIGH_DAMAGE_THRESHOLD) {
+                            // Damage from moderate band + hard band
+                            damageAmount = (float) ((LANDING_IMPACT_VELOCITY_HIGH_DAMAGE_THRESHOLD - LANDING_IMPACT_VELOCITY_LOW_DAMAGE_THRESHOLD) * LANDING_DAMAGE_FACTOR_MODERATE);
+                            damageAmount += (float) ((impactSpeed - LANDING_IMPACT_VELOCITY_HIGH_DAMAGE_THRESHOLD) * LANDING_DAMAGE_FACTOR_HARD);
+                            LOGGER.info("Hard landing detected.");
+                        } else {
+                            // Damage from moderate band only
+                            damageAmount = (float) ((impactSpeed - LANDING_IMPACT_VELOCITY_LOW_DAMAGE_THRESHOLD) * LANDING_DAMAGE_FACTOR_MODERATE);
+                            LOGGER.info("Moderate landing detected.");
+                        }
+                    } else {
+                        // Between NO_DAMAGE and LOW_DAMAGE_THRESHOLD: Logged as soft, no damage calculated.
+                        LOGGER.info("Soft landing, below low damage threshold. No damage.");
+                    }
+
+                    if (damageAmount > 0) {
+                        damageAmount = Math.min(damageAmount, MAX_LANDING_DAMAGE); // Cap damage
+                        damageAmount = Math.max(0.5f, damageAmount); // Ensure at least a tiny bit of damage if any is calculated
+                        LOGGER.info("Applying {:.2f} landing damage to {}.", damageAmount, rider.getName().getString());
+                        // rider.damage(this.getDamageSources().fall(), damageAmount); // Disabled custom landing damage as per user request
+                    }
+                } else {
+                    LOGGER.info("Very soft touch down (below NO_DAMAGE threshold). No damage.");
+                }
+            }
+        }
+        // --- End of Landing Damage Logic ---
+
         // After moving, if on ground, ensure Y velocity is truly zero to prevent sinking/bouncing
-        if (this.isOnGround()) {
+        if (currentOnGroundStatus) { // Use the status determined after the last move
             this.setVelocity(this.getVelocity().x, 0, this.getVelocity().z);
         }
+
+        // Update prevOnGroundState for the next tick
+        this.prevOnGroundState = currentOnGroundStatus;
     }
 
     @Override
@@ -205,6 +291,9 @@ public class PlaneEntity extends Entity {
         if (nbt.contains("CurrentSpeed", NbtCompound.FLOAT_TYPE)) {
             currentSpeed = nbt.getFloat("CurrentSpeed");
         }
+        // Initialize prevOnGroundState based on the loaded entity's onGround status.
+        // This ensures correct landing detection on the first tick after loading.
+        this.prevOnGroundState = this.isOnGround();
     }
 
     @Override
@@ -225,6 +314,22 @@ public class PlaneEntity extends Entity {
     // Make the plane rideable
     public boolean canBeControlledByRider() {
         return true;
+    }
+
+    @Override
+    protected void addPassenger(Entity passenger) {
+        super.addPassenger(passenger); // Essential to actually add the passenger
+        if (!this.getWorld().isClient && passenger instanceof LivingEntity livingPassenger) {
+            // Apply Slow Falling
+            livingPassenger.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, Integer.MAX_VALUE, 0, true, false, true));
+            LOGGER.info("Applied Slow Falling to passenger {}", livingPassenger.getName().getString());
+
+            // Apply Resistance (Invincibility)
+            // Amplifier 4 should be Resistance V, making the player take 0 damage (100% reduction).
+            // Duration is very long, will be cleared on dismount.
+            livingPassenger.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, Integer.MAX_VALUE, 4, true, false, true));
+            LOGGER.info("Applied Resistance V (Invincibility) to passenger {}", livingPassenger.getName().getString());
+        }
     }
 
     @Override
@@ -266,6 +371,17 @@ public class PlaneEntity extends Entity {
 
             // Passenger's pitch is typically controlled by their own input (mouse look).
             // We are not explicitly setting passenger pitch here, allowing them to look up and down freely.
+
+            // Sync passenger's onGround state with the plane's
+            // This is crucial for the passenger's own fall damage mechanics to reset correctly.
+            passenger.setOnGround(this.isOnGround());
+
+            // Additional safeguard: If the plane is on the ground, ensure passenger fallDistance is zero.
+            if (passenger instanceof LivingEntity livingPassenger) {
+                if (this.isOnGround()) {
+                    livingPassenger.fallDistance = 0.0F;
+                }
+            }
         }
     }
 
@@ -284,33 +400,28 @@ public class PlaneEntity extends Entity {
         return STALL_SPEED_THRESHOLD;
     }
 
+    @Override
     public void removePassenger(Entity passenger) {
-        if (this.isOnGround()) {
+        // Client-side prediction
+        if (this.getWorld().isClient) {
             super.removePassenger(passenger);
             return;
         }
 
-        World world = this.getWorld();
-        boolean safeToDismount = false;
-        // Check current block and 3 blocks down
-        for (int i = 0; i <= 3; i++) {
-            BlockPos posBeneath = this.getBlockPos().down(i);
-            if (!world.getBlockState(posBeneath).isAir() && world.getBlockState(posBeneath).isSolidBlock(world, posBeneath)) {
-                safeToDismount = true;
-                break;
-            }
-        }
+        // Server-side: Always allow dismount
+        super.removePassenger(passenger);
+        LOGGER.info("Dismount allowed for {} (server decision).", passenger.getName().getString());
 
-        if (safeToDismount) {
-            super.removePassenger(passenger);
-        } else {
-            if (passenger instanceof PlayerEntity && !world.isClient()) {
-                ((PlayerEntity) passenger).sendMessage(Text.literal("Too high to dismount!"), true);
+        if (passenger instanceof LivingEntity livingPassenger) {
+            livingPassenger.removeStatusEffect(StatusEffects.SLOW_FALLING);
+            livingPassenger.removeStatusEffect(StatusEffects.RESISTANCE);
+            LOGGER.info("Removed effects from {} after dismount.", livingPassenger.getName().getString());
+
+            if (livingPassenger instanceof PlayerEntity) {
+                Minmod.CANCEL_NEXT_FALL_DAMAGE.add(livingPassenger.getUuid());
+                LOGGER.info("Added {} to CANCEL_NEXT_FALL_DAMAGE set for next fall.", livingPassenger.getName().getString());
             }
-            // If not safe, do not call super.removePassenger(passenger), thus preventing dismount.
-            if (!world.isClient()) {
-                passenger.startRiding(this, true);
-            }
+            livingPassenger.fallDistance = 0.0F;
         }
     }
 
@@ -369,3 +480,4 @@ public class PlaneEntity extends Entity {
         return true;
     }
 }
+

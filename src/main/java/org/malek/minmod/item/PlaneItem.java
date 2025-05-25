@@ -22,7 +22,7 @@ public class PlaneItem extends Item {
     private static final Logger LOGGER = LogManager.getLogger("minmod-plane");
     
     public PlaneItem(Settings settings) {
-        super(settings);
+        super(settings.maxDamage(250)); // Added maxDamage for durability
     }
     
     @Override
@@ -35,6 +35,9 @@ public class PlaneItem extends Item {
                 player.setVelocity(player.getRotationVector().multiply(1.5));
                 player.fallDistance = 0.0F;
                 
+                // Damage the item
+                stack.damage(1, player, (p) -> p.sendToolBreakStatus(hand));
+
                 // Set cooldown
                 player.getItemCooldownManager().set(this, 20);
             }
@@ -58,6 +61,7 @@ public class PlaneItem extends Item {
     public ActionResult useOnBlock(ItemUsageContext context) {
         World world = context.getWorld();
         PlayerEntity player = context.getPlayer();
+        ItemStack stack = context.getStack(); // Get the stack from context
 
         if (!world.isClient) {
             Vec3d pos = context.getHitPos();
@@ -67,8 +71,10 @@ public class PlaneItem extends Item {
             world.spawnEntity(plane);
 
             if (player != null && !player.getAbilities().creativeMode) {
-                context.getStack().decrement(1);
+                // Consume the item from the stack upon placing the plane
+                stack.decrement(1);
             }
+
             return ActionResult.SUCCESS; // Server successfully handled it
         }
         return ActionResult.CONSUME; // Client consumes the action, plays animation

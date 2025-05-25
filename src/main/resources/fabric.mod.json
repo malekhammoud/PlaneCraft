@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "id": "minmod",
+  "id": "planecraft",
   "version": "${version}",
-  "name": "MinMod",
-  "description": "A minimal mod with enhanced gameplay features",
+  "name": "PlaneCraft",
+  "description": "Adds buildable, flyable planes to Minecraft with custom flight physic.",
   "authors": [
     "mhammoud"
   ],
   "contact": {
-    "homepage": "https://github.com/mhammoud/minmod",
-    "sources": "https://github.com/mhammoud/minmod"
+    "homepage": "https://github.com/mhammoud-os/PlaneCraft",
+    "sources": "https://github.com/mhammoud-os/PlaneCraft"
   },
   "license": "MIT",
   "icon": "assets/minmod/textures/item/plane.png",
