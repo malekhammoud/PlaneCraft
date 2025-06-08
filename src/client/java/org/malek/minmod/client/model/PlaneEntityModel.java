@@ -127,4 +127,3 @@ public class PlaneEntityModel extends EntityModel<PlaneEntity> {
         rearRightWheel.render(matrices, vertices, light, overlay, red, green, blue, alpha);
     }
 }
-
