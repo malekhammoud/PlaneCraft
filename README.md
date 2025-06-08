@@ -15,7 +15,9 @@
 
 ## Download
 
+- [**Modrinth**](https://modrinth.com/mod/planecraft)
 - [**CurseForge**](https://www.curseforge.com/minecraft/mc-mods/planecraft)
+
 
 ## Demo
 
