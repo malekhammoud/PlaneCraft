@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '1.10-SNAPSHOT'
+    id 'fabric-loom' version '1.10.5' // Changed from 1.10-SNAPSHOT to match logs
     id 'maven-publish'
 }
 
@@ -19,7 +19,7 @@ loom {
             sourceSet sourceSets.client
         }
     }
-    
+
     runs {
         client {
             // Skip all authentication for development
@@ -29,9 +29,12 @@ loom {
             vmArg "-DignoreProfileCredentials=true"
             vmArg "-DuserProperties.file=/dev/null"
             property "fabric.development", "true"
+            // Ensure client() is called if you intend to run the client environment specifically
+            // client() // This was in a previous suggestion, ensure it's present if needed for your run config
         }
         server {
             property "fabric.development", "true"
+            // server() // Similarly, ensure server() is called if needed
         }
     }
 }

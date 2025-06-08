@@ -20,21 +20,21 @@ import java.util.List;
 
 public class PlaneItem extends Item {
     private static final Logger LOGGER = LogManager.getLogger("minmod-plane");
-    
+
     public PlaneItem(Settings settings) {
         super(settings.maxDamage(250)); // Added maxDamage for durability
     }
-    
+
     @Override
     public TypedActionResult<ItemStack> use(World world, PlayerEntity player, Hand hand) {
         ItemStack stack = player.getStackInHand(hand);
-        
+
         try {
             if (!world.isClient) {
                 // Give a temporary flight boost when used
                 player.setVelocity(player.getRotationVector().multiply(1.5));
                 player.fallDistance = 0.0F;
-                
+
                 // Damage the item
                 stack.damage(1, player, (p) -> p.sendToolBreakStatus(hand));
 
@@ -47,7 +47,7 @@ public class PlaneItem extends Item {
             return TypedActionResult.pass(stack);
         }
     }
-    
+
     @Override
     public void appendTooltip(ItemStack stack, World world, List<Text> tooltip, TooltipContext context) {
         try {
@@ -67,7 +67,7 @@ public class PlaneItem extends Item {
             Vec3d pos = context.getHitPos();
             PlaneEntity plane = new PlaneEntity(Minmod.PLANE_ENTITY_TYPE, world);
             plane.refreshPositionAndAngles(pos.x, pos.y, pos.z,
-                player != null ? player.getYaw() : 0, 0);
+                    player != null ? player.getYaw() : 0, 0);
             world.spawnEntity(plane);
 
             if (player != null && !player.getAbilities().creativeMode) {
